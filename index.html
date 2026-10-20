@@ -54,6 +54,8 @@ body {
 .progress-clock__time-colon,
 .progress-clock__time-ampm {
 	transition: color 0.2s linear;
+	position: relative;
+	z-index: 1;
 	-webkit-user-select: none;
 	-moz-user-select: none;
 	user-select: none;
@@ -82,6 +84,22 @@ body {
 .progress-clock__time-ampm {
 	cursor: default;
 	grid-row: 3;
+}
+.progress-clock__format-toggle {
+	position: absolute;
+	top: 50%;
+	left: 50%;
+	width: 8em;
+	height: 8em;
+	transform: translate(-50%, -50%);
+	border-radius: 50%;
+	background: transparent;
+	cursor: pointer;
+	z-index: 0;
+}
+.progress-clock__format-toggle:focus-visible {
+	outline: 2px solid hsl(var(--hue),80%,50%);
+	outline-offset: 0.25em;
 }
 .progress-clock__rings {
 	display: block;
@@ -171,12 +189,13 @@ body {
 
 <body translate="no">
   <div id="clock" class="progress-clock">
+	<button class="progress-clock__format-toggle" type="button" aria-label="切换为12小时制" aria-pressed="true" title="点击切换12/24小时制"></button>
 	<button class="progress-clock__time-date" data-group="d" type="button">
 		<small data-unit="w">Friday</small><br>
 		<span data-unit="mo">January</span>
 		<span data-unit="d">14</span>
 	</button>
-	<button class="progress-clock__time-digit" data-unit="h" data-group="h" type="button">12</button><span class="progress-clock__time-colon">:</span><button class="progress-clock__time-digit" data-unit="m" data-group="m" type="button">39</button><span class="progress-clock__time-colon">:</span><button class="progress-clock__time-digit" data-unit="s" data-group="s" type="button">01</button>
+	<button class="progress-clock__time-digit" data-unit="h" data-group="h" type="button">0</button><span class="progress-clock__time-colon">:</span><button class="progress-clock__time-digit" data-unit="m" data-group="m" type="button">39</button><span class="progress-clock__time-colon">:</span><button class="progress-clock__time-digit" data-unit="s" data-group="s" type="button">01</button>
 	<span class="progress-clock__time-ampm" data-unit="ap">AM</span>
 	<svg class="progress-clock__rings" width="256" height="256" viewBox="0 0 256 256">
 		<defs>
@@ -233,6 +252,18 @@ class ProgressClock {
     this.time = 0;
     this.updateTimeout = null;
     this.ringTimeouts = [];
+    this.is24Hour = true;
+    this.formatToggle = this.el.querySelector(".progress-clock__format-toggle");
+
+    const toggleFormat = () => {
+      this.is24Hour = !this.is24Hour;
+      this.update();
+    };
+
+    this.el
+      .querySelectorAll(".progress-clock__format-toggle, .progress-clock__time-date, .progress-clock__time-digit, .progress-clock__time-colon, .progress-clock__time-ampm")
+      .forEach(el => el.addEventListener("click", toggleFormat));
+
     this.update();
   }
   getDayOfWeek(day) {
@@ -297,8 +328,27 @@ class ProgressClock {
       const monthInfo = this.getMonthInfo(month, year);
       const m_progress = sec / 60;
       const h_progress = (min + m_progress) / 60;
-      const d_progress = (hr + h_progress) / 24;
-      const mo_progress = (day - 1 + d_progress) / monthInfo.days;
+      const day_progress = (hr + h_progress) / 24;
+      const hour_progress =
+        ((this.is24Hour ? hr : hr % 12) + h_progress) /
+        (this.is24Hour ? 24 : 12);
+      const mo_progress = (day - 1 + day_progress) / monthInfo.days;
+      const hour12 = hr % 12 || 12;
+      const ampm = hr >= 12 ? "PM" : "AM";
+
+      if (this.formatToggle) {
+        this.formatToggle.setAttribute(
+          "aria-label",
+          this.is24Hour ? "切换为12小时制" : "切换为24小时制"
+        );
+        this.formatToggle.setAttribute(
+          "aria-pressed",
+          this.is24Hour ? "true" : "false"
+        );
+        this.formatToggle.title =
+          this.is24Hour ? "当前24小时制，点击切换为12小时制" : "当前12小时制，点击切换为24小时制";
+      }
+
       const units = [
       {
         label: "w",
@@ -312,11 +362,11 @@ class ProgressClock {
       {
         label: "d",
         value: day,
-        progress: d_progress },
+        progress: hour_progress },
 
       {
         label: "h",
-        value: hr > 12 ? hr - 12 : hr,
+        value: this.is24Hour ? hr : hour12,
         progress: h_progress },
 
       {
@@ -330,7 +380,7 @@ class ProgressClock {
 
       {
         label: "ap",
-        value: hr > 12 ? "PM" : "AM" }];
+        value: ampm }];
 
 
 
